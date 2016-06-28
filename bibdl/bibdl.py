@@ -7,6 +7,8 @@ TODO:
     * Command line args (see notes below)
     * Documentation
     * Blacklist
+    * Configurable timeout
+    * query highlighting
 
 """
 # EXPORTS
