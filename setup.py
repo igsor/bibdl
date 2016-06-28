@@ -6,6 +6,7 @@ setup(
     description='A tool to parse a bibliography and download the PDFs',
     long_description=open('README.md').read(),
     author='Matthias Baumgartner',
+    packages=['bibdl'],
     author_email='dev@igsor.net',
     license='Free for use',
 )
