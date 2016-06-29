@@ -484,6 +484,7 @@ bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib"""
     parser.add_option('-o', '--out', metavar='OUTPUT', default=os.getcwd(), help='Output directory')
     parser.add_option('-q', '--quiet', action='store_false', dest='verbose', default=True, help='Don\'t print status messages')
     parser.add_option('-s', '--separate', action='store_true', dest='separate', default=False, help='One directory per bibliography file')
+    parser.add_option('-c', '--code', action='store_true', dest='code', default=False, help='Don\'t download but instead open a python shell after loading the bib file')
     options, paths = parser.parse_args()
 
     if len(paths) == 0:
@@ -507,6 +508,23 @@ bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib"""
             , verbose=options.verbose
             , overwrite=options.force
             )
+
+        if options.code:
+            for bib in paths:
+                try:
+                    if not os.path.exists(bib):
+                        raise Exception('Cannot read {}'.format(bib))
+
+                    dl.parse(bib)
+
+                except OSError, e:
+                    print_error(e.filename + ': ' + e.strerror)
+                except Exception, e:
+                    print_error(e.message)
+
+            import code
+            code.interact(local=locals(), banner='Happy hacking')
+            return 0
 
         # Check the target directory
         # TODO: Create directories only if needed (i.e. within BibDL
