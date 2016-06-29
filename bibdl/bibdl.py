@@ -33,6 +33,8 @@ from scholar import ScholarQuerier, ScholarSettings, SearchScholarQuery, Cluster
 TIMEOUT = 0.5
 MIN_TIMEOUT = 0.25
 
+# Number of reported authors
+NUM_AUTHORS = 3
 
 # Length of status keys
 STATUS_LEN = 12
@@ -76,6 +78,18 @@ class BibDL(object):
 	"""Return the publication part of *key*.
 	"""
         return self.bib[key][2]
+
+    def year(self, key):
+        """Return the year of publication *key*.
+        """
+        pub = self.pub(key)
+        r = re.findall('(?:^|\D)(\d{4})(?:\D|$)', pub)
+        return len(r) > 0 and r[-1] or None
+
+    def main_authors(self, key):
+        authors = self.authors(key)
+        authors = re.split(',(?:\s*and)?\s*', authors)
+        return ', '.join(authors[:NUM_AUTHORS])
 
     def clear(self):
 	"""Start anew. Clears the bibliography.
@@ -214,10 +228,8 @@ class BibDL(object):
 
         print s
 
-## HELPERS ##
-
-class Colors(object):
-    """Console colors.
+def is_book(url):
+    """Check if *url* hints a book.
     """
     BOLD    = "\033[1m" # bold
     ENDC    = "\033[0m" # end
