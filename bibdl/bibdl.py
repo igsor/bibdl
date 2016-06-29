@@ -246,7 +246,7 @@ class BibDL(object):
         self.status.title(key)
 
         try:
-            outkey = unicodedata.normalize('NFKD', key).encode('ascii', 'ignore')
+            outkey = encode(key)
             dst = join_path(prefix, "{}.pdf".format(outkey))
             if not path_exists(dirname(dst)) or not isdir(dirname(dst)) or not os.access(dirname(dst), os.W_OK): # Directory access
                 raise Exception('Cannot write to directory')
@@ -403,6 +403,9 @@ class Status(object):
         s += self.ERROR + warn + self.ENDC
         print s
 
+def encode(text):
+    return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore')
+
 def is_book(url):
     """Check if *url* hints a book.
     """
@@ -485,6 +488,7 @@ bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib"""
     parser.add_option('-q', '--quiet', action='store_false', dest='verbose', default=True, help='Don\'t print status messages')
     parser.add_option('-s', '--separate', action='store_true', dest='separate', default=False, help='One directory per bibliography file')
     parser.add_option('-c', '--code', action='store_true', dest='code', default=False, help='Don\'t download but instead open a python shell after loading the bib file')
+    parser.add_option('-r', '--run', metavar='CODE', default='', help='Run CODE and exit.')
     options, paths = parser.parse_args()
 
     if len(paths) == 0:
@@ -509,7 +513,7 @@ bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib"""
             , overwrite=options.force
             )
 
-        if options.code:
+        if options.code or options.run != '':
             for bib in paths:
                 try:
                     if not os.path.exists(bib):
@@ -531,11 +535,15 @@ bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib"""
                 if keys is None:
                     keys = dl.keys()
                 for k in keys:
-                    item = fu(k)
-                    print k.ljust(12), item
+                    print encode(k).ljust(12), encode(fu(k))
 
-            import code
-            code.interact(local=locals(), banner='Happy hacking')
+            if options.run != '':
+                eval(options.run, globals(), locals())
+
+            if options.code:
+                import code
+                code.interact(local=locals(), banner='Happy hacking')
+
             return 0
 
         # Check the target directory
