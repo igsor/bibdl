@@ -53,7 +53,7 @@ class BibDL(object):
     """
     def __init__(self, prefix='/tmp', verbose=True):
         self.prefix = prefix
-        self.verbose = verbose
+        self.status = Status(verbose)
 
         # Bibliography
         self._re_all = re.compile('^\[(.*)\]\s*(.*?[\w?)]{2})\.\s*(.*?)\.\s*(.*)$')
@@ -136,13 +136,13 @@ class BibDL(object):
         pdf_url = strip_url(art.attrs['url_pdf'][0])
 
 	# Some status
-        self.status('Title', art.attrs['title'][0])
-        self.status('Year', art.attrs['year'][0])
-        self.status('PDF', pdf_url)
+        self.status.result('Title', art.attrs['title'][0])
+        self.status.result('Year', art.attrs['year'][0])
+        self.status.result('PDF', pdf_url)
 
 	# Check PDF url
         if pdf_url is None or is_blacklisted(pdf_url):
-            self.status('URL', art.attrs['url'][0])
+            self.status.result('URL', art.attrs['url'][0])
 
             # Article found, but no PDF. Resort to searching by cluster.
             if art.attrs['cluster_id'][0] is not None:
@@ -156,10 +156,10 @@ class BibDL(object):
 			# Valid PDF found!
                         pdf_url = curl
 			# More status
-                        self.status('Cluster', art.attrs['cluster_id'][0])
-                        self.status('Title', cart.attrs['title'][0])
-                        self.status('Year', cart.attrs['year'][0])
-                        self.status('PDF', pdf_url)
+                        self.status.result('Cluster', art.attrs['cluster_id'][0])
+                        self.status.result('Title', cart.attrs['title'][0])
+                        self.status.result('Year', cart.attrs['year'][0])
+                        self.status.result('PDF', pdf_url)
 			# We have a result, abort search
                         break
 
@@ -172,22 +172,19 @@ class BibDL(object):
 	The file is stored in directory *prefix*, with file name *key*.pdf
 	"""
         prefix = prefix is None and self.prefix or prefix
-        self.status('Processing', key, title=True)
+        self.status.title(key)
 
         try:
             title = self.title(key)
-            self.status('Query', title)
+            self.status.query('Title', title)
+            self.status.query('Authors', self.main_authors(key))
+            self.status.query('Year', self.year(key))
             url = self.pdf_url(title)
             if url is not None:
                 key = unicodedata.normalize('NFKD', key).encode('ascii', 'ignore')
                 dst = join_path(prefix, "{}.pdf".format(key))
-                urlretrieve(url, dst)
-                self.status('Copied to', dst)
-            else:
-                self.status('ERROR', 'No PDF found', error=True)
-        except Exception, e:
-            if self.verbose:
-                self.status('ERROR', e.message, error=True)
+                #urlretrieve(url, dst)
+                self.status.result('Copied to', dst)
             else:
                 print e.message
 
@@ -204,38 +201,98 @@ class BibDL(object):
             time.sleep(timeout)
 
 
-    def status(self, key, text, title=False, error=False):
-	"""Nicely formatted status messages.
-	"""
-        if text is None or not self.verbose:
-            return
+## HELPERS ##
 
-        s = ''
-        if title:
-            s += '\n'
-            s += Colors.BOLD + key
-            s += ' '
-            s += Colors.TITLE + text
-            s += Colors.ENDC
-        else:
-            s += error and Colors.ERROR or Colors.KEY
-            s += '  '
-            s += key.ljust(STATUS_LEN)
-            s += not error and Colors.ENDC or ''
-            s += ': '
-            s += text
-            s += Colors.ENDC
-
-        print s
-
-def is_book(url):
-    """Check if *url* hints a book.
+class Status(object):
+    """Console colors.
     """
     BOLD    = "\033[1m" # bold
     ENDC    = "\033[0m" # end
     ERROR   = "\033[91m" # Red
     TITLE   = "\033[93m" # yellow
     KEY     = "\033[94m" # BLUE
+
+    def __init__(self, verbose=True):
+        self.verbose = verbose
+        self.strcollapse = re.compile('[\d\w]+')
+        self.msg_query  = {}
+        self.msg_result = {}
+
+    def similar(self, fst, snd):
+        # case and spaces
+        fst, snd = map(unicode.strip, map(unicode.lower, (fst, snd)))
+        # remove all but letters and digits
+        fst = u''.join(self.strcollapse.findall(fst))
+        snd = u''.join(self.strcollapse.findall(snd))
+        return fst == snd
+
+    def query(self, key, text):
+        if text is None: return
+        text = unicode(text)
+        self.msg_query[key] = text
+        self.status(key, text)
+
+    def result(self, key, text):
+        if text is None: return
+        text = unicode(text)
+
+        if key in self.msg_query:
+            # Check against query
+            if not self.similar(self.msg_query[key], text):
+                self.status(key, text)
+                self.warning(key + ' mismatch Q')
+        elif key in self.msg_result:
+            # Check against former result
+            if not self.similar(self.msg_result[key], text):
+                self.status(key, text)
+                self.warning(key + ' mismatch R')
+        else:
+            # Key not seen yet
+            self.msg_result[key] = text
+            self.status(key, text)
+
+    def warning(self, text):
+        self.status('WARNING', text, error=True)
+
+    def error(self, text):
+        self.status('ERROR', text, error=True)
+
+    def title(self, text):
+        self.finished()
+        self.status('Processing', text, title=True)
+
+    def finished(self):
+        self.msg_query.clear()
+        self.msg_result.clear()
+
+    def status(self, key, text, title=False, error=False):
+	"""Nicely formatted status messages.
+	"""
+        if text is None or (not self.verbose and not error):
+            return
+
+        s = ''
+        if title:
+            s += '\n'
+            s += self.BOLD + key
+            s += ' '
+            s += self.TITLE + text
+            s += self.ENDC
+        else:
+            s += error and self.ERROR or self.KEY
+            s += '  '
+            s += key.ljust(STATUS_LEN)
+            s += not error and self.ENDC or ''
+            s += ': '
+            s += text
+            s += self.ENDC
+
+        print s
+
+def is_book(url):
+    """Check if *url* hints a book.
+    """
+    return url is None or re.match('https?://[^/]*books.google.com', url) is not None
 
 def is_blacklisted(url):
     """Check if *url* is blacklisted.
