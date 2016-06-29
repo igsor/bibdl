@@ -2,6 +2,13 @@
 """Bibliography Downloader.
 This module grabs an alpha style bibliography from a file and tries
 to download the respective PDFs via google scholar.
+
+Here's an example of the alpha style bibliography (without the line breaks)
+
+[ASS96]         Harold Abelson, Gerald J. Sussman, and Julie Sussman.
+                Structure and Interpretation of Computer Programs.
+                MIT Press, Cambridge, second edition, 1996.
+
 """
 # Copyright (c) 2016, Matthias Baumgartner
 # All rights reserved.
@@ -329,7 +336,8 @@ class Status(object):
     def finished(self):
         """Finish a block.
         """
-        print ""
+        if self.verbose:
+            print ""
 
     def error(self, text):
         """Error message.
