@@ -7,7 +7,6 @@ TODO:
     * Command line args (see notes below)
     * Documentation
     * Blacklist
-    * Configurable timeout
     * query highlighting
 
 """
@@ -17,6 +16,7 @@ __all__ = ('BibDL', )
 # IMPORTS (standard)
 from io import open
 from os.path import join as join_path
+from random import normalvariate
 import re
 import sys
 import time
@@ -28,6 +28,11 @@ import warnings
 from scholar import ScholarQuerier, ScholarSettings, SearchScholarQuery, ClusterScholarQuery
 
 # CONFIGURATION
+
+# Timeout after each query to prevent google from blocking us
+TIMEOUT = 0.5
+MIN_TIMEOUT = 0.25
+
 
 # Length of status keys
 STATUS_LEN = 12
@@ -178,7 +183,12 @@ class BibDL(object):
         prefix = prefix is None and self.prefix or prefix
         for key in self.bib.keys():
             self.single(key, prefix)
-            time.sleep(1) # Timeout to prevent google from blocking us
+            timeout = 0.0
+            while timeout <= MIN_TIMEOUT:
+                timeout = normalvariate(TIMEOUT, 0.25)
+
+            time.sleep(timeout)
+
 
     def status(self, key, text, title=False, error=False):
 	"""Nicely formatted status messages.
