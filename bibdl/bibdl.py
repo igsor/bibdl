@@ -188,7 +188,9 @@ class BibDL(object):
                 #urlretrieve(url, dst)
                 self.status.result('Copied to', dst)
             else:
-                print e.message
+                self.status.error('No PDF found')
+        except Exception, e:
+            self.status.error(e.message)
 
         self.status.finished()
 
