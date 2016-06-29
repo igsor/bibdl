@@ -185,7 +185,7 @@ class BibDL(object):
             if url is not None:
                 key = unicodedata.normalize('NFKD', key).encode('ascii', 'ignore')
                 dst = join_path(prefix, "{}.pdf".format(key))
-                #urlretrieve(url, dst)
+                urlretrieve(url, dst)
                 self.status.result('Copied to', dst)
             else:
                 self.status.error('No PDF found')
