@@ -109,7 +109,7 @@ class BibDL(object):
         self.timeout = TIMEOUT
 
         # Bibliography
-        self._re_all = re.compile('^\[(.*)\]\s*(.*?[\w?)]{2})\.\s*(.*?)\.\s*(.*)$')
+        self._re_all = re.compile('^\[(.*)\]\s*(.*?[\w?)]{2})\.\s*(.*?)\.\s*(.*)$') # FIXME: Allow title to end in question mark
         self.bib = {} # Triplet (authors, title, pub)
 
         # Scholar
@@ -478,7 +478,10 @@ bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib
 
 # Copy the bibliographies, each into its own directory
 # e.g. publications listed in bibA.bib go to /tmp/pubs/bibA
-bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib"""
+bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib
+
+# Get a list of keys and titles
+bibdl.py -r "get('title')" /pth/to/bibA.bib"""
 
     fmt = optparse.IndentedHelpFormatter()
     parser = optparse.OptionParser(usage=usage, formatter=fmt)
