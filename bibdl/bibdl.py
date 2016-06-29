@@ -38,7 +38,10 @@ __all__ = ('BibDL', )
 
 # IMPORTS (standard)
 from io import open
+import os
 from os.path import join as join_path
+from os.path import exists as path_exists
+from os.path import dirname, isdir
 from random import normalvariate
 import re
 import sys
@@ -91,8 +94,9 @@ class BibDL(object):
     >>> dl.all()
 
     """
-    def __init__(self, prefix='/tmp', verbose=True):
+    def __init__(self, prefix='/tmp', verbose=True, overwrite=False):
         self.prefix = prefix
+        self.overwrite = overwrite
         self.status = Status(verbose)
 
         # Bibliography
@@ -223,17 +227,29 @@ class BibDL(object):
 	The file is stored in directory *prefix*, with file name *key*.pdf
 	"""
         prefix = prefix is None and self.prefix or prefix
+
         self.status.title(key)
 
         try:
+            outkey = unicodedata.normalize('NFKD', key).encode('ascii', 'ignore')
+            dst = join_path(prefix, "{}.pdf".format(outkey))
+            if not path_exists(dirname(dst)) or not isdir(dirname(dst)) or not os.access(dirname(dst), os.W_OK): # Directory access
+                raise Exception('Cannot write to directory')
+
+            if path_exists(dst): # File access
+                if not self.overwrite:
+                    raise Exception('File exists already, not overwriting')
+                elif not os.access(dst, os.W_OK):
+                    raise Exception('Cannot overwrite file.')
+                else:
+                    self.status.warning('Overwriting file')
+
             title = self.title(key)
             self.status.query('Title', title)
             self.status.query('Authors', self.main_authors(key))
             self.status.query('Year', self.year(key))
             url = self.pdf_url(title)
             if url is not None:
-                key = unicodedata.normalize('NFKD', key).encode('ascii', 'ignore')
-                dst = join_path(prefix, "{}.pdf".format(key))
                 urlretrieve(url, dst)
                 self.status.result('Copied to', dst)
             else:
