@@ -514,13 +514,25 @@ bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib"""
                 try:
                     if not os.path.exists(bib):
                         raise Exception('Cannot read {}'.format(bib))
-
                     dl.parse(bib)
-
                 except OSError, e:
                     print_error(e.filename + ': ' + e.strerror)
                 except Exception, e:
                     print_error(e.message)
+
+            def get(arg, keys=None):
+                """Access to parsed values."""
+                fu = {'author': dl.authors
+                     ,'title' : dl.title
+                     ,'pub'   : dl.pub
+                     ,'year'  : dl.year
+                     ,'all'   : lambda k: dl.authors(k) + '. ' + dl.title(k) + '. ' + dl.pub(k)
+                     }[arg]
+                if keys is None:
+                    keys = dl.keys()
+                for k in keys:
+                    item = fu(k)
+                    print k.ljust(12), item
 
             import code
             code.interact(local=locals(), banner='Happy hacking')
