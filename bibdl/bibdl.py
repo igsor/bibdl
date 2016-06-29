@@ -1,9 +1,6 @@
 """
 
 TODO:
-    * Display for verification
-      > Highlighting
-
     * Command line args (see notes below)
     * Documentation
     * Blacklist
@@ -141,7 +138,7 @@ class BibDL(object):
 
 	# Check PDF url
         if pdf_url is None or is_blacklisted(pdf_url):
-            self.status.result('URL', art.attrs['url'][0])
+            #self.status.result('URL', art.attrs['url'][0])
 
             # Article found, but no PDF. Resort to searching by cluster.
             if art.attrs['cluster_id'][0] is not None:
@@ -155,7 +152,7 @@ class BibDL(object):
 			# Valid PDF found!
                         pdf_url = curl
 			# More status
-                        self.status.result('Cluster', art.attrs['cluster_id'][0])
+                        #self.status.result('Cluster', art.attrs['cluster_id'][0])
                         self.status.result('Title', cart.attrs['title'][0])
                         self.status.result('Year', cart.attrs['year'][0])
                         self.status.result('PDF', pdf_url)
@@ -210,13 +207,28 @@ class BibDL(object):
 ## HELPERS ##
 
 class Status(object):
-    """Console colors.
+    """Nicely formatted status messages.
+
+    Print different types of status messages, each with
+    its individual, special snowflake formatting.
+
+    Should help distinguish origin and relevance of
+    program output.
+
     """
-    BOLD    = "\033[1m" # bold
-    ENDC    = "\033[0m" # end
-    ERROR   = "\033[91m" # Red
+    # Colors and text formatting
+    ENDC    = "\033[0m"  # end
+    BOLD    = "\033[1m"  # bold
     TITLE   = "\033[93m" # yellow
-    KEY     = "\033[94m" # BLUE
+    ERROR   = "\033[91m" # Red
+    KEY     = "\033[94m" # blue
+    QUERY   = "\033[97m" # white
+    RESULT  = "\033[37m" # gray
+
+    # Status chunks
+    KEY_LEN = STATUS_LEN
+    SEP     = ': '
+    IDENT   = '  '
 
     def __init__(self, verbose=True):
         self.verbose = verbose
@@ -224,7 +236,9 @@ class Status(object):
         self.msg_query  = {}
         self.msg_result = {}
 
-    def similar(self, fst, snd):
+    def _similar(self, fst, snd):
+        """Return True if the strings *fst* and *snd* are similar.
+        """
         # case and spaces
         fst, snd = map(unicode.strip, map(unicode.lower, (fst, snd)))
         # remove all but letters and digits
@@ -232,67 +246,73 @@ class Status(object):
         snd = u''.join(self.strcollapse.findall(snd))
         return fst == snd
 
-    def query(self, key, text):
+    def title(self, text):
+        """Title. Starts a new block.
+        """
+        self.msg_query.clear()
+        self.msg_result.clear()
+        print self.BOLD + 'Processing ' + self.TITLE + text + self.ENDC
+
+    def finished(self):
+        """Finish a block.
+        """
+        print ""
+
+    def error(self, text):
+        """Error message.
+        """
         if text is None: return
+        print self.BOLD + self.ERROR + self.IDENT + 'ERROR'.ljust(self.KEY_LEN) + self.SEP + text + self.ENDC
+
+    def warning(self, text):
+        """Warning.
+        """
+        if text is None or not self.verbose: return
+        print self.ERROR + self.IDENT + 'WARNING'.ljust(self.KEY_LEN) + self.SEP + text + self.ENDC
+
+    def query(self, key, text):
+        """Query information.
+        """
+        if text is None or not self.verbose: return
         text = unicode(text)
         self.msg_query[key] = text
-        self.status(key, text)
+        self._status(key, text, self.QUERY)
 
     def result(self, key, text):
-        if text is None: return
+        """Result information.
+        """
+        if text is None or not self.verbose: return
         text = unicode(text)
 
+        warn = None
         if key in self.msg_query:
             # Check against query
-            if not self.similar(self.msg_query[key], text):
-                self.status(key, text)
-                self.warning(key + ' mismatch Q')
+            if not self._similar(self.msg_query[key], text):
+                warn = 'mismatch query'
+                self._status(key, text, self.RESULT, warn=warn)
         elif key in self.msg_result:
             # Check against former result
-            if not self.similar(self.msg_result[key], text):
-                self.status(key, text)
-                self.warning(key + ' mismatch R')
+            if not self._similar(self.msg_result[key], text):
+                warn = 'mismatch former result'
+                self._status(key, text, self.RESULT, warn=warn)
         else:
             # Key not seen yet
             self.msg_result[key] = text
-            self.status(key, text)
+            self._status(key, text, self.RESULT, warn=warn)
 
-    def warning(self, text):
-        self.status('WARNING', text, error=True)
 
-    def error(self, text):
-        self.status('ERROR', text, error=True)
-
-    def title(self, text):
-        self.finished()
-        self.status('Processing', text, title=True)
-
-    def finished(self):
-        self.msg_query.clear()
-        self.msg_result.clear()
-
-    def status(self, key, text, title=False, error=False):
-	"""Nicely formatted status messages.
+    def _status(self, key, text, color, warn=None):
+	"""Print status message.
+        Append an inline warning if *warn* is given.
 	"""
-        if text is None or (not self.verbose and not error):
-            return
+        if text is None or not self.verbose: return
 
-        s = ''
-        if title:
-            s += '\n'
-            s += self.BOLD + key
-            s += ' '
-            s += self.TITLE + text
-            s += self.ENDC
-        else:
-            s += error and self.ERROR or self.KEY
-            s += '  '
-            s += key.ljust(STATUS_LEN)
-            s += not error and self.ENDC or ''
-            s += ': '
-            s += text
-            s += self.ENDC
+        warn = warn is not None and ' ({})'.format(warn) or ''
 
+        s  = self.KEY + self.IDENT + key.ljust(self.KEY_LEN) + self.ENDC
+        s += self.SEP
+        s += color + text + self.ENDC
+        s += self.ERROR + warn + self.ENDC
         print s
 
 def is_book(url):
