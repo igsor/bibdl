@@ -376,12 +376,12 @@ class Status(object):
         if key in self.msg_query:
             # Check against query
             if not self._similar(self.msg_query[key], text):
-                warn = 'mismatch query'
+                warn = 'differs from query'
                 self._status(key, text, self.RESULT, warn=warn)
         elif key in self.msg_result:
             # Check against former result
             if not self._similar(self.msg_result[key], text):
-                warn = 'mismatch former result'
+                warn = 'differs from former result'
                 self._status(key, text, self.RESULT, warn=warn)
         else:
             # Key not seen yet
