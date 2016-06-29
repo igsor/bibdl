@@ -420,41 +420,129 @@ def strip_url(url):
 ## MAIN ##
 
 def main():
+    # Local imports
     import optparse
-    usage = """bibdl.py /path/to/bibliography.t
-Download a complete bibliography"""
+    from os.path import basename, splitext
 
-    # TODO: Recursive operation / Multiple files
-    # TODO: Fetch single key via command line arg
-    # TODO: Only overwrite if --force given
-    # TODO: Output directory
-    # TODO: Bibliography file documented in the help text
+    usage = """bibdl.py [OPTIONS] /pth/to/bibA.bib [/pth/to/bibB.bib ...]
+Download a complete bibliography.
+
+The bibliography file consists of entries like the following:
+
+[ASS96]     Harold Abelson, Gerald J. Sussman, and Julie Sussman. Structure and Interpretation of Computer Programs. MIT Press, Cambridge, second edition, 1996.
+
+The output is colored, if your terminal supports it. The output gives query
+values in white font. Retrieved values are in gray and are printed only if
+they add information (i.e. are not shown yet or differ from previous values).
+
+Examples:
+
+# Copy all publications in bibfile.bib into the current working directory.
+bibdl.py /pth/to/bibfile.bib
+
+# Only fetch the publication ASS96
+bibdl.py -k ASS96 /pth/to/bibfile.bib
+
+# Same but store the pdf in /tmp/pubs
+bibdl.py -o /tmp/pubs -k ASS96 /pth/to/bibfile.bib
+
+# Fetch all publications and put them into /tmp/pubs
+bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib
+
+# Copy the bibliographies, each into its own directory
+# e.g. publications listed in bibA.bib go to /tmp/pubs/bibA
+bibdl.py -o /tmp/pubs /pth/to/bibA.bib /pth/to/bibB.bib /pth/to/bibC.bib"""
 
     fmt = optparse.IndentedHelpFormatter()
     parser = optparse.OptionParser(usage=usage, formatter=fmt)
+    parser.add_option('-f', '--force', action='store_true', dest='force', default=False, help='Overwrite existing files')
     parser.add_option('-k', '--key', metavar='KEY', default=None, help='Fetch key only')
-    #parser.add_option('-v', '--verbose', metavar='VERBOSE', default=None, help='Print status messages')
-    #parser.add_option('-o', '--out', metavar='OUT', default=None, help='Output directory')
-
+    parser.add_option('-o', '--out', metavar='OUTPUT', default=os.getcwd(), help='Output directory')
+    parser.add_option('-q', '--quiet', action='store_false', dest='verbose', default=True, help='Don\'t print status messages')
+    parser.add_option('-s', '--separate', action='store_true', dest='separate', default=False, help='One directory per bibliography file')
     options, paths = parser.parse_args()
 
     if len(paths) == 0:
         parser.error("At least one bibliography file is required.")
 
-    dl = BibDL(prefix='/tmp/bibdl_p250/pdfs', verbose=True)
+    def split_out(bib):
+        """Return a (valid) path for separated bibliographies."""
+        outpath = join_path(options.out, splitext(basename(bib))[0])
+        if not path_exists(outpath):
+            os.mkdir(outpath)
+        return outpath
 
-    for p in paths:
-        dl.parse(p)
+    def print_error(msg):
+        """Print an error message."""
+        print "\033[1m\033[91mERROR: " + msg + "\033[0m"
 
-    if options.key is not None:
-        dl.single(unicode(options.key))
-    else:
-        dl.all()
+    try:
+        # Create instance
+        dl = BibDL(
+              prefix=options.out
+            , verbose=options.verbose
+            , overwrite=options.force
+            )
 
-    #import code
-    #code.interact(local=locals())
+        # Check the target directory
+        # TODO: Create directories only if needed (i.e. within BibDL
+        # TODO: Create directories anyways, also if --force not present
+        #       otherwise, --force has two meanings; create dirs and overwrite files
+        if not path_exists(options.out):
+            if options.force:
+                os.makedirs(options.out)
+            else:
+                raise Exception('Output directory {} does not exist'.format(options.out))
 
-    print ""
+        elif not isdir(options.out):
+            raise Exception('Output {} is not a directory'.format(options.out))
+
+        elif not os.access(options.out, os.W_OK):
+            raise Exception('Output {} cannot be written'.format(options.out))
+
+        # Do the actual work
+        if options.key is not None:
+            # Search a single file
+            for bib in paths:
+                try:
+                    if not os.path.exists(bib):
+                        raise Exception('Cannot read {}'.format(bib))
+
+                    dl.parse(bib)
+                    if options.key in dl.keys():
+                        prefix = options.separate and split_out(bib) or None
+                        dl.single(unicode(options.key), prefix=prefix)
+                        break
+
+                except OSError, e:
+                    print_error(e.filename + ': ' + e.strerror)
+                except Exception, e:
+                    print_error(e.message)
+
+        else:
+            # Fetch whole bibliography
+            for bib in paths:
+                try:
+                    if not os.path.exists(bib):
+                        raise Exception('Cannot read {}'.format(bib))
+
+                    dl.parse(bib)
+
+                    if options.separate:
+                        dl.all(prefix=split_out(bib))
+                        dl.clear() # Cleanup after processing items
+                except OSError, e:
+                    print_error(e.filename + ': ' + e.strerror)
+                except Exception, e:
+                    print_error(e.message)
+
+            if not options.separate:
+                dl.all()
+
+    except OSError, e:
+        print_error(e.filename + ': ' + e.strerror)
+    except Exception, e:
+        print_error(e.message)
 
     return 0
 
