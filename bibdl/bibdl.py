@@ -1,13 +1,12 @@
 """
 
 TODO:
-    * Warn if a book
-    * Show author information (for verification!)
-    * Parse and show year
+    * Display for verification
+      > Highlighting
+
     * Command line args (see notes below)
     * Documentation
     * Blacklist
-    * query highlighting
 
 """
 # EXPORTS
@@ -27,7 +26,7 @@ import warnings
 # IMPORTS (locals)
 from scholar import ScholarQuerier, ScholarSettings, SearchScholarQuery, ClusterScholarQuery
 
-# CONFIGURATION
+## CONFIGURATION ##
 
 # Timeout after each query to prevent google from blocking us
 TIMEOUT = 0.5
@@ -343,6 +342,11 @@ Download a complete bibliography"""
         dl.single(unicode(options.key))
     else:
         dl.all()
+
+    #import code
+    #code.interact(local=locals())
+
+    print ""
 
     return 0
 
