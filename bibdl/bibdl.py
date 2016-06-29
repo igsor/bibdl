@@ -1,11 +1,38 @@
+#! /usr/bin/env python
+"""Bibliography Downloader.
+This module grabs an alpha style bibliography from a file and tries
+to download the respective PDFs via google scholar.
 """
+# Copyright (c) 2016, Matthias Baumgartner
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from
+#    this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+# THE POSSIBILITY OF SUCH DAMAGE.
 
-TODO:
-    * Command line args (see notes below)
-    * Documentation
-    * Blacklist
-
-"""
 # EXPORTS
 __all__ = ('BibDL', )
 
@@ -40,12 +67,29 @@ URL_BLACKLIST = [
       re.compile('https?://[^/]*springer')
     , re.compile('https?://[^/]*academia')
     , re.compile('https?://[^/]*semanticscholar')
-    ]
+    ] # TODO: Reality check
 
 
 ## CODE ##
 class BibDL(object):
-    """
+    """Bibliography Downloader.
+
+    Parses an alpha style bibliography from a file and
+    allows to download one or several of its items.
+
+    Example usage:
+
+    >>> bibfile = '/pth/to/bibfile'
+    >>> outdir  = '/tmp'
+    >>> dl = BibDL(outdir)
+    >>> dl.parse(bibfile)
+    >>> # Download the publication for the first key
+    >>> dl.single(dl.keys()[0])
+    >>> # Download the publications for the first four keys
+    >>> dl.some(dl.keys()[:4])
+    >>> # Download all publications
+    >>> dl.all()
+
     """
     def __init__(self, prefix='/tmp', verbose=True):
         self.prefix = prefix
@@ -83,9 +127,17 @@ class BibDL(object):
         return len(r) > 0 and r[-1] or None
 
     def main_authors(self, key):
+        """Return the main authors.
+        Produces a comma seperated list of names.
+        """
         authors = self.authors(key)
         authors = re.split(',(?:\s*and)?\s*', authors)
         return ', '.join(authors[:NUM_AUTHORS])
+
+    def keys(self):
+        """Return all known keys.
+        """
+        return self.bib.keys()
 
     def clear(self):
 	"""Start anew. Clears the bibliography.
@@ -191,17 +243,22 @@ class BibDL(object):
 
         self.status.finished()
 
-    def all(self, prefix=None):
-	"""Fetch all keys.
-	"""
+    def some(self, keys, prefix=None):
+        """Fetch some keys.
+        """
         prefix = prefix is None and self.prefix or prefix
-        for key in self.bib.keys():
+        for key in keys:
             self.single(key, prefix)
             timeout = 0.0
             while timeout <= MIN_TIMEOUT:
                 timeout = normalvariate(TIMEOUT, 0.25)
 
             time.sleep(timeout)
+
+    def all(self, prefix=None):
+	"""Fetch all keys.
+	"""
+        self.some(self.bib.keys(), prefix)
 
 
 ## HELPERS ##
