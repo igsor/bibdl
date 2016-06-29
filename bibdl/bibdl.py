@@ -44,26 +44,27 @@ Here's an example of the alpha style bibliography (without the line breaks)
 __all__ = ('BibDL', )
 
 # IMPORTS (standard)
-from io import open
 import os
-from os.path import join as join_path
-from os.path import exists as path_exists
-from os.path import dirname, isdir
-from random import normalvariate
 import re
 import sys
 import time
 import unicodedata
-from urllib import urlretrieve
 import warnings
+from io import open
+from os.path import dirname, isdir
+from os.path import exists as path_exists
+from os.path import join as join_path
+from random import normalvariate, randint
+from urllib import urlretrieve
+from user_agent import generate_user_agent
 
 # IMPORTS (locals)
-from scholar import ScholarQuerier, ScholarSettings, SearchScholarQuery, ClusterScholarQuery
+from scholar import ClusterScholarQuery, ScholarConf, ScholarQuerier, ScholarSettings, SearchScholarQuery
 
 ## CONFIGURATION ##
 
 # Timeout after each query to prevent google from blocking us
-TIMEOUT = 0.5
+TIMEOUT = 1.0
 MIN_TIMEOUT = 0.25
 
 # Number of reported authors
@@ -105,13 +106,14 @@ class BibDL(object):
         self.prefix = prefix
         self.overwrite = overwrite
         self.status = Status(verbose)
+        self.timeout = TIMEOUT
 
         # Bibliography
         self._re_all = re.compile('^\[(.*)\]\s*(.*?[\w?)]{2})\.\s*(.*?)\.\s*(.*)$')
         self.bib = {} # Triplet (authors, title, pub)
 
         # Scholar
-        self.querier = ScholarQuerier()
+        self.querier = BibDLQuerier() # ScholarQuerier()
         settings = ScholarSettings()
         self.querier.apply_settings(settings)
 
@@ -188,7 +190,13 @@ class BibDL(object):
         query.set_num_page_results(1) # -c 1
         self.querier.send_query(query)
 
-        if len(self.querier.articles) == 0: return None # Absolutely nothing returned; Abort
+        if len(self.querier.articles) == 0:
+            self.status.warning('No search results. Blocked maybe?')
+            ScholarConf.USER_AGENT = generate_user_agent() # Randomize user agent
+            self.timeout *= 2.0 # Increase timeout (exponential backoff)
+            return None # Absolutely nothing returned; Abort
+
+        self.timeout = TIMEOUT
 
 	# Initial PDF url
         art = self.querier.articles[0]
@@ -274,7 +282,7 @@ class BibDL(object):
             self.single(key, prefix)
             timeout = 0.0
             while timeout <= MIN_TIMEOUT:
-                timeout = normalvariate(TIMEOUT, 0.25)
+                timeout = normalvariate(self.timeout, 0.25)
 
             time.sleep(timeout)
 
@@ -282,7 +290,6 @@ class BibDL(object):
 	"""Fetch all keys.
 	"""
         self.some(self.bib.keys(), prefix)
-
 
 ## HELPERS ##
 
@@ -416,6 +423,23 @@ def strip_url(url):
     m = re.search('scholar\.google\.com\/(http.*)', url)
     url = m is not None and m.groups()[0] or url
     return url
+
+class BibDLQuerier(ScholarQuerier):
+    """Randomize user agent every N queries.
+    N is chosen randomly.
+    """
+    def __init__(self):
+        super(BibDLQuerier, self).__init__()
+        self.queries_sent = 0
+        self.queries_change = randint(5, 15)
+
+    def send_query(self, query):
+        self.queries_sent += 1
+        if self.queries_sent % self.queries_change == 0:
+            self.queries_change = randint(3, 13)
+            ScholarConf.USER_AGENT = generate_user_agent()
+
+        return super(BibDLQuerier, self).send_query(query)
 
 ## MAIN ##
 
