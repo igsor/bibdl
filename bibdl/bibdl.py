@@ -164,6 +164,9 @@ class BibDL(object):
 
                 # pdf_url can stil be None
 
+        if is_book(pdf_url) or is_book(art.attrs['url'][0]):
+            self.status.warning('Might be a book')
+
         return pdf_url
 
     def single(self, key, prefix=None):
@@ -186,6 +189,8 @@ class BibDL(object):
                 self.status.result('Copied to', dst)
             else:
                 print e.message
+
+        self.status.finished()
 
     def all(self, prefix=None):
 	"""Fetch all keys.
