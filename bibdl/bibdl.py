@@ -65,7 +65,7 @@ from scholar import ClusterScholarQuery, ScholarConf, ScholarQuerier, ScholarSet
 ## CONFIGURATION ##
 
 # Timeout after each query to prevent google from blocking us
-TIMEOUT = 1.0
+TIMEOUT = 5.0
 MIN_TIMEOUT = 0.25
 
 # Number of reported authors
@@ -245,6 +245,7 @@ class BibDL(object):
         prefix = prefix is None and self.prefix or prefix
 
         self.status.title(key)
+        has_queried = False
 
         try:
             outkey = encode(key)
@@ -265,6 +266,7 @@ class BibDL(object):
             self.status.query('Authors', self.main_authors(key))
             self.status.query('Year', self.year(key))
             url = self.pdf_url(title)
+            has_queried = True
             if url is not None:
                 urlretrieve(url, dst)
                 self.status.result('Copied to', dst)
@@ -274,18 +276,20 @@ class BibDL(object):
             self.status.error(e.message)
 
         self.status.finished()
+        return has_queried
 
     def some(self, keys, prefix=None):
         """Fetch some keys.
         """
         prefix = prefix is None and self.prefix or prefix
         for key in keys:
-            self.single(key, prefix)
-            timeout = 0.0
-            while timeout <= MIN_TIMEOUT:
-                timeout = normalvariate(self.timeout, 0.25)
+            dowait = self.single(key, prefix)
+            if dowait:
+                timeout = 0.0
+                while timeout <= MIN_TIMEOUT:
+                    timeout = normalvariate(self.timeout, 0.25)
 
-            time.sleep(timeout)
+                time.sleep(timeout)
 
     def all(self, prefix=None):
 	"""Fetch all keys.
