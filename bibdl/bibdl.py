@@ -322,14 +322,14 @@ class Status(object):
         self.verbose = verbose
         self.strcollapse = re.compile('[\d\w]+')
         self.logfile = logfile is not None and open(logfile, 'a') or None
-        if self.logfile is not None: self.logfile.write('\n{}\n'.format(datetime.now().isoformat(' ')))
+        if self.logfile is not None: self.logfile.write(u'\n{}\n'.format(datetime.now().isoformat(' ')))
         self.msg_query  = {}
         self.msg_result = {}
 
     def _writeln(self, line):
         print line
         if self.logfile is not None:
-            self.logfile.write(line + '\n')
+            self.logfile.write(line + u'\n')
             self.logfile.flush()
 
     def _similar(self, fst, snd):
