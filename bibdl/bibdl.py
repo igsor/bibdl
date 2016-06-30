@@ -50,6 +50,7 @@ import sys
 import time
 import unicodedata
 import warnings
+from datetime import datetime
 from io import open
 from os.path import dirname, isdir
 from os.path import exists as path_exists
@@ -102,10 +103,10 @@ class BibDL(object):
     >>> dl.all()
 
     """
-    def __init__(self, prefix='/tmp', verbose=True, overwrite=False):
+    def __init__(self, prefix='/tmp', verbose=True, overwrite=False, logfile=None):
         self.prefix = prefix
         self.overwrite = overwrite
-        self.status = Status(verbose)
+        self.status = Status(verbose, logfile)
         self.timeout = TIMEOUT
 
         # Bibliography
@@ -317,11 +318,19 @@ class Status(object):
     SEP     = ': '
     IDENT   = '  '
 
-    def __init__(self, verbose=True):
+    def __init__(self, verbose=True, logfile=None):
         self.verbose = verbose
         self.strcollapse = re.compile('[\d\w]+')
+        self.logfile = logfile is not None and open(logfile, 'a') or None
+        if self.logfile is not None: self.logfile.write('\n{}\n'.format(datetime.now().isoformat(' ')))
         self.msg_query  = {}
         self.msg_result = {}
+
+    def _writeln(self, line):
+        print line
+        if self.logfile is not None:
+            self.logfile.write(line + '\n')
+            self.logfile.flush()
 
     def _similar(self, fst, snd):
         """Return True if the strings *fst* and *snd* are similar.
@@ -338,25 +347,25 @@ class Status(object):
         """
         self.msg_query.clear()
         self.msg_result.clear()
-        print self.BOLD + 'Processing ' + self.TITLE + text + self.ENDC
+        self._writeln(self.BOLD + 'Processing ' + self.TITLE + text + self.ENDC)
 
     def finished(self):
         """Finish a block.
         """
         if self.verbose:
-            print ""
+            self._writeln("")
 
     def error(self, text):
         """Error message.
         """
         if text is None: return
-        print self.BOLD + self.ERROR + self.IDENT + 'ERROR'.ljust(self.KEY_LEN) + self.SEP + text + self.ENDC
+        self._writeln(self.BOLD + self.ERROR + self.IDENT + 'ERROR'.ljust(self.KEY_LEN) + self.SEP + text + self.ENDC)
 
     def warning(self, text):
         """Warning.
         """
         if text is None or not self.verbose: return
-        print self.ERROR + self.IDENT + 'WARNING'.ljust(self.KEY_LEN) + self.SEP + text + self.ENDC
+        self._writeln(self.ERROR + self.IDENT + 'WARNING'.ljust(self.KEY_LEN) + self.SEP + text + self.ENDC)
 
     def query(self, key, text):
         """Query information.
@@ -401,7 +410,7 @@ class Status(object):
         s += self.SEP
         s += color + text + self.ENDC
         s += self.ERROR + warn + self.ENDC
-        print s
+        self._writeln(s)
 
 def encode(text):
     return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore')
@@ -492,6 +501,7 @@ bibdl.py -r "get('title')" /pth/to/bibA.bib"""
     parser.add_option('-s', '--separate', action='store_true', dest='separate', default=False, help='One directory per bibliography file')
     parser.add_option('-c', '--code', action='store_true', dest='code', default=False, help='Don\'t download but instead open a python shell after loading the bib file')
     parser.add_option('-r', '--run', metavar='CODE', default='', help='Run CODE and exit.')
+    parser.add_option('-l', '--log', metavar='LOGFILE', default=None, help='Write status to LOGFILE')
     options, paths = parser.parse_args()
 
     if len(paths) == 0:
@@ -514,6 +524,7 @@ bibdl.py -r "get('title')" /pth/to/bibA.bib"""
               prefix=options.out
             , verbose=options.verbose
             , overwrite=options.force
+            , logfile=options.log
             )
 
         if options.code or options.run != '':
