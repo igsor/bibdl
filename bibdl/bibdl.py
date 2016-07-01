@@ -112,7 +112,7 @@ class BibDL(object):
         self.blocked_cmd = blocked_cmd
 
         # Bibliography
-        self._re_all = re.compile('^\[(.*)\]\s*(.*?[\w?)]{2})\.\s*(.*?)\.\s*(.*)$') # FIXME: Allow title to end in question mark
+        self._re_all = re.compile('^\[(.*)\]\s*(.*?[\w?)]{2})\.\s*(.*?)[.!?]\s*(.*)$')
         self.bib = {} # Triplet (authors, title, pub)
 
         # Scholar
