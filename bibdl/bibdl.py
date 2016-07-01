@@ -50,6 +50,7 @@ import sys
 import time
 import unicodedata
 import warnings
+from commands import getstatusoutput
 from datetime import datetime
 from io import open
 from os.path import dirname, isdir
@@ -103,11 +104,12 @@ class BibDL(object):
     >>> dl.all()
 
     """
-    def __init__(self, prefix='/tmp', verbose=True, overwrite=False, logfile=None):
+    def __init__(self, prefix='/tmp', verbose=True, overwrite=False, logfile=None, blocked_cmd=None):
         self.prefix = prefix
         self.overwrite = overwrite
         self.status = Status(verbose, logfile)
         self.timeout = TIMEOUT
+        self.blocked_cmd = blocked_cmd
 
         # Bibliography
         self._re_all = re.compile('^\[(.*)\]\s*(.*?[\w?)]{2})\.\s*(.*?)\.\s*(.*)$') # FIXME: Allow title to end in question mark
@@ -177,6 +179,15 @@ class BibDL(object):
 
             self.bib[key] = (authors, title, pub)
 
+    def on_blocked(self):
+        ScholarConf.USER_AGENT = generate_user_agent() # Randomize user agent
+        self.timeout *= 2.0 # Increase timeout (exponential backoff)
+
+        if self.blocked_cmd is not None:
+            status, output = getstatusoutput(self.blocked_cmd)
+            if status != 0:
+                self.status.error(output)
+
     def pdf_url(self, phrase):
 	"""Fetch a paper by *phrase* (usually the title) from scholar.google.com
 	Tries to download a valid PDF. Returns the pdf url if one is found.
@@ -193,10 +204,8 @@ class BibDL(object):
 
         if len(self.querier.articles) == 0:
             self.status.warning('No search results. Blocked maybe?')
-            ScholarConf.USER_AGENT = generate_user_agent() # Randomize user agent
-            self.timeout *= 2.0 # Increase timeout (exponential backoff)
-            # TODO: After some tries, run a callback (e.g. to restart vpnc)
             # TODO: Open result page in a browser (to answer the captcha)
+            self.on_blocked()
             return None # Absolutely nothing returned; Abort
 
         self.timeout = TIMEOUT
@@ -509,6 +518,7 @@ bibdl.py -r "get('title')" /pth/to/bibA.bib"""
     parser.add_option('-c', '--code', action='store_true', dest='code', default=False, help='Don\'t download but instead open a python shell after loading the bib file')
     parser.add_option('-r', '--run', metavar='CODE', default='', help='Run CODE and exit.')
     parser.add_option('-l', '--log', metavar='LOGFILE', default=None, help='Write status to LOGFILE')
+    parser.add_option('--blocked', metavar='COMMAND', default=None, help='Command to be executed in case we\'re blocked by google')
     options, paths = parser.parse_args()
 
     if len(paths) == 0:
@@ -532,6 +542,7 @@ bibdl.py -r "get('title')" /pth/to/bibA.bib"""
             , verbose=options.verbose
             , overwrite=options.force
             , logfile=options.log
+            , blocked_cmd=options.blocked
             )
 
         if options.code or options.run != '':
