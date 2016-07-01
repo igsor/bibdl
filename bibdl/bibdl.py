@@ -195,6 +195,8 @@ class BibDL(object):
             self.status.warning('No search results. Blocked maybe?')
             ScholarConf.USER_AGENT = generate_user_agent() # Randomize user agent
             self.timeout *= 2.0 # Increase timeout (exponential backoff)
+            # TODO: After some tries, run a callback (e.g. to restart vpnc)
+            # TODO: Open result page in a browser (to answer the captcha)
             return None # Absolutely nothing returned; Abort
 
         self.timeout = TIMEOUT
@@ -210,7 +212,7 @@ class BibDL(object):
 
 	# Check PDF url
         if pdf_url is None or is_blacklisted(pdf_url):
-            #self.status.result('URL', art.attrs['url'][0])
+            self.status.result('URL', art.attrs['url'][0])
 
             # Article found, but no PDF. Resort to searching by cluster.
             if art.attrs['cluster_id'][0] is not None:
@@ -450,6 +452,7 @@ class BibDLQuerier(ScholarQuerier):
         self.queries_change = randint(5, 15)
 
     def send_query(self, query):
+        # TODO: Randomize query, i.e. remove/change unused arguments to vary query signature
         self.queries_sent += 1
         if self.queries_sent % self.queries_change == 0:
             self.queries_change = randint(3, 13)
@@ -499,7 +502,7 @@ bibdl.py -r "get('title')" /pth/to/bibA.bib"""
     fmt = optparse.IndentedHelpFormatter()
     parser = optparse.OptionParser(usage=usage, formatter=fmt)
     parser.add_option('-f', '--force', action='store_true', dest='force', default=False, help='Overwrite existing files')
-    parser.add_option('-k', '--key', metavar='KEY', default=None, help='Fetch key only')
+    parser.add_option('-k', '--key', metavar='KEY', default=None, help='Fetch key only') # TODO: Allow several, comma-seperated keys
     parser.add_option('-o', '--out', metavar='OUTPUT', default=os.getcwd(), help='Output directory')
     parser.add_option('-q', '--quiet', action='store_false', dest='verbose', default=True, help='Don\'t print status messages')
     parser.add_option('-s', '--separate', action='store_true', dest='separate', default=False, help='One directory per bibliography file')
